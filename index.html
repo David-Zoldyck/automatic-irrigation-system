@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Irrigation Monitor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        h1 {
+            color: greenyellow;
+        }
+
+        #sample {
+            font-size: 2em;
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            background-color: #fff;
+            display: inline-block;
+        }
+
+        .green {
+            color: green;
+        }
+
+        .brown {
+            color: brown;
+        }
+
+        .red {
+            color: red;
+        }
+
+        #chartContainer {
+            width: 80%;
+            margin: auto;
+            margin-top: 40px;
+        }
+
+        canvas {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        /* Modal styles */
+        #alertModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Irrigation Monitor</h1>
+    <div id="sample">Loading...</div>
+    <div id="chartContainer">
+        <canvas id="chart"></canvas>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alertModal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Low Percentage Alert</h2>
+            <p>Soil moisture is critically low!</p>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const sampleDiv = document.getElementById('sample');
+        const ctx = document.getElementById('chart').getContext('2d');
+        const alertModal = document.getElementById('alertModal');
+        const closeBtn = document.querySelector('.close-btn');
+        let alertShown = false;
+
+        const data = {
+            labels: [],
+            datasets: [{
+                label: 'Percentage Moisture',
+                data: [],
+                backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                  borderColor: 'black', // Change line color to black
+                borderWidth: 2, 
+                fill: false,
+            }]
+        };
+
+        const options = {
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time (seconds)'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Percentage Moisture'
+                    }
+                }
+            }
+        };
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: options
+        });
+
+        let startTime = null;
+
+        socket.on('data', function (data) {
+            console.log(data);
+            const value = parseFloat(data);
+            sampleDiv.innerHTML = value.toFixed(2) + '%';
+
+            if (value >= 50) {
+                sampleDiv.className = 'green';
+            } else if (value >= 30 && value < 50) {
+                sampleDiv.className = 'brown';
+            } else {
+                sampleDiv.className = 'red';
+            }
+
+            if (value < 15 && !alertShown) {
+                alertModal.style.display = 'block';
+                alertShown = true;
+            }
+
+            const currentTime = Math.floor(Date.now() / 1000);
+            if (!startTime) {
+                startTime = currentTime;
+            }
+            const elapsedSeconds = currentTime - startTime;
+
+            chart.data.labels.push(elapsedSeconds + 's');
+            chart.data.datasets[0].data.push(value);
+            chart.update();
+        });
+
+        closeBtn.onclick = function () {
+            alertModal.style.display = 'none';
+            alertShown = false;
+        }
+
+        window.onclick = function (event) {
+            if (event.target === alertModal) {
+                alertModal.style.display = 'none';
+                alertShown = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
